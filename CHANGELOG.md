@@ -5,7 +5,7 @@
 - Slash commands work right after installation, and stay current: on load the plugin
   writes the `/stop-that-shit` and `/sts` composer templates into `~/.pi/agent/prompts`
   and replaces either one when the shipped text changed, so an upgrade reaches users who
-  never run the installer. The displaced text is kept once as `<name>.md.bak`.
+  never run the installer. The displaced text is kept once as a `.md.bak` copy.
 - `npm run prompts:desktop` performs the same write from a checkout.
 
 ## 0.2.6

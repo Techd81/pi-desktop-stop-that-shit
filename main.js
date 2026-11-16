@@ -21,7 +21,7 @@ const VIEW_ID = "sts";
 // the manifest has no contribution for it. Writing the two templates on load is
 // what makes `/stop-that-shit` and `/sts` available right after an install, and
 // it is also how an upgrade refreshes a template whose shipped text changed: the
-// text it displaces is kept once as `<name>.md.bak`.
+// text it displaces is kept once as a `.md.bak` copy.
 const PROMPTS_DIR_ENV = "STS_DESKTOP_PROMPTS_DIR";
 
 function installComposerTemplates(options = {}) {
