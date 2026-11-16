@@ -52,10 +52,13 @@ function installOne(dir, name, content) {
       // denied read) is a real failure worth naming.
       if (error.code !== 'ENOENT') throw error;
     }
+    // Identical content needs no write, so a start with current templates costs
+    // one read per file instead of a rewrite.
     if (exists && current === content) return result;
     if (exists) {
-      // The first backup is the user's own text. A later overwrite must not
-      // replace it, or a second upgrade would erase the only copy.
+      // A changed template is replaced, and the text it displaces is kept once.
+      // A later refresh must not overwrite that copy, or the second upgrade
+      // would erase the only backup.
       const backup = `${file}.bak`;
       if (!fs.existsSync(backup)) {
         fs.writeFileSync(backup, current, 'utf8');

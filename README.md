@@ -27,10 +27,14 @@ until a directive arms the Guard — a fresh session starts `unobserved / unconf
 ## Quick start
 
 Install the plugin from the plugin center, enable it, and start a new chat (an agent
-extension loads at the session's next turn boundary). Then install the slash templates:
+extension loads at the session's next turn boundary). The `/stop-that-shit` and `/sts`
+composer templates install themselves when the plugin loads: they are written into
+`~/.pi/agent/prompts`, and a template whose shipped text changed is replaced, with the
+displaced text kept once as `.md.bak`. An upgrade therefore reaches users who never run
+anything. The same write is available from a checkout:
 
 ```powershell
-npm run prompts:desktop     # from the plugin's own directory
+npm run prompts:desktop
 ```
 
 Send a directive as the **first line** of the turn:
@@ -96,7 +100,10 @@ detached `Task` keeping its reservation for the session).
 
 ## 中文说明
 
-插件装好后启用，**另起一个新会话**（agent extension 在下一个回合边界加载），再装斜杠模板：
+插件装好后启用，**另起一个新会话**（agent extension 在下一个回合边界加载）。`/stop-that-shit`
+与 `/sts` 两个补全模板在插件加载时自动写进 `~/.pi/agent/prompts`；模板文案随版本变化时直接
+覆盖，被替换的旧文本另存为 `.md.bak`，所以升级后用户不用做任何事。在仓库里也能手动触发同一
+处写入：
 
 ```powershell
 npm run prompts:desktop

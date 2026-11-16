@@ -26,12 +26,12 @@ budget, and the reason the last action was decided.
 ## Slash entry
 
 PI-Desktop resolves `/name` in the composer from prompt templates at
-`~/.pi/agent/prompts` (user) and `<project>/.pi/prompts` (project). This plugin
-ships two, installed with:
-
-```powershell
-npm run prompts:desktop
-```
+`~/.pi/agent/prompts` (user) and `<project>/.pi/prompts` (project). The manifest has no
+contribution for that directory, so the plugin writes the two templates itself on load:
+`stop-that-shit.md` and `sts.md` are there right after installation, and a template whose
+shipped text changed is replaced, with the displaced text kept once as `.md.bak`; that is
+how an upgrade reaches a user who never runs anything. `npm run prompts:desktop` performs
+the same write from a checkout.
 
 ```text
 /stop-that-shit review -- Review this diff. Report findings; do not edit.
@@ -136,8 +136,8 @@ npm run pack:desktop       # dist/io.github.techd81.stop-that-shit-<version>.pip
 ```
 
 These scripts live in the repository; the packaged `.piplug` ships the runtime
-plus `scripts/install-desktop-prompts.cjs`, so run the checks from the checkout
-and the prompt-template installer from either place.
+plus `scripts/install-desktop-prompts.cjs`. A normal installation needs no manual
+step: the load-time install writes both templates and refreshes them on upgrade.
 
 Install the `.piplug` from the plugins page, or load the checkout as a local
 plugin, then enable it and start a new chat (an extension loads at the session's

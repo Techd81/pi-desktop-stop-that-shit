@@ -60,3 +60,27 @@ test('one blocked target reports its reason and does not hide the other result',
   assert.equal(other.status, 'created');
   assert.equal(fs.readFileSync(other.file, 'utf8'), STOP_TEMPLATE);
 });
+
+test('loading the plugin installs both templates without a manual step', async () => {
+  const dir = path.join(tempDataDir(), 'prompts');
+  const registered = [];
+  globalThis.pi = {
+    commands: { register: async (command) => { registered.push(command.id); }, unregister: async () => {} },
+    ui: { revealView: async () => {} }
+  };
+  const previous = process.env.STS_DESKTOP_PROMPTS_DIR;
+  process.env.STS_DESKTOP_PROMPTS_DIR = dir;
+  try {
+    const plugin = require('../main.js');
+    assert.equal(typeof plugin.installComposerTemplates, 'function');
+    await plugin.onLoad();
+    await plugin.onUnload();
+  } finally {
+    if (previous === undefined) delete process.env.STS_DESKTOP_PROMPTS_DIR;
+    else process.env.STS_DESKTOP_PROMPTS_DIR = previous;
+    delete globalThis.pi;
+  }
+  assert.equal(fs.readFileSync(path.join(dir, 'stop-that-shit.md'), 'utf8'), STOP_TEMPLATE);
+  assert.equal(fs.readFileSync(path.join(dir, 'sts.md'), 'utf8'), STATUS_TEMPLATE);
+  assert.deepEqual(registered, ['sts.openpanel']);
+});

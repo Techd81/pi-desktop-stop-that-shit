@@ -10,11 +10,32 @@
  */
 
 const { createPanelBackend } = require("./src/desktop/panel.cjs");
+const { installPromptTemplates } = require("./src/desktop/prompt-templates.cjs");
 
 const COMMAND_ID = "sts.openpanel";
 const PANEL_TITLE = "Stop That Shit";
 // The work-panel view id declared in manifest.json `contributes.views`.
 const VIEW_ID = "sts";
+
+// The composer resolves `/name` from the host's prompt-template directory, and
+// the manifest has no contribution for it. Writing the two templates on load is
+// what makes `/stop-that-shit` and `/sts` available right after an install, and
+// it is also how an upgrade refreshes a template whose shipped text changed: the
+// text it displaces is kept once as `<name>.md.bak`.
+const PROMPTS_DIR_ENV = "STS_DESKTOP_PROMPTS_DIR";
+
+function installComposerTemplates(options = {}) {
+  const dir = options.dir || process.env[PROMPTS_DIR_ENV] || undefined;
+  const entries = installPromptTemplates(dir);
+  for (const entry of entries) {
+    if (entry.error) console.error(`[stop-that-shit] composer template not installed (${entry.file}): ${entry.error}`);
+  }
+  const written = entries.filter((entry) => entry.changed);
+  if (written.length) {
+    console.error(`[stop-that-shit] composer templates installed: ${written.map((entry) => entry.file).join(", ")}`);
+  }
+  return entries;
+}
 
 /** @type {ReturnType<typeof createPanelBackend> | null} */
 let backend = null;
@@ -31,6 +52,7 @@ function backendFor(pi) {
 async function onLoad() {
   try {
     const pi = host();
+    installComposerTemplates();
     backendFor(pi);
     const canReveal = typeof pi?.ui?.revealView === 'function';
     const canOpenPanel = typeof pi?.ui?.openPanel === 'function';
@@ -87,4 +109,4 @@ async function onPanelInvoke(channel, payload) {
   }
 }
 
-module.exports = { onLoad, onUnload, onPanelInvoke };
+module.exports = { installComposerTemplates, onLoad, onUnload, onPanelInvoke };
