@@ -80,5 +80,16 @@ async function run(sessionId, dataDir, ticket, agentId = '') {
   catch (error) { process.stderr.write(`Stop That Shit: controlled dependency operation failed: ${error.message}\n`); process.exitCode = 1; }
 }
 
-if (require.main === module) run(...process.argv.slice(2));
-module.exports = { run };
+function decodeArg(value) {
+  return Buffer.from(String(value || ''), 'base64').toString('utf8');
+}
+
+// The launcher passes base64 so a path with spaces, quotes, or non-ASCII text
+// survives the shell unchanged; this is the only place that decodes it.
+function parseRunnerArgs(argv) {
+  const [sessionId, dataDir, ticket, agentId] = argv;
+  return [decodeArg(sessionId), decodeArg(dataDir), String(ticket || ''), decodeArg(agentId)];
+}
+
+if (require.main === module) run(...parseRunnerArgs(process.argv.slice(2)));
+module.exports = { parseRunnerArgs, run };

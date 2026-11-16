@@ -10,6 +10,10 @@ const { readAnnotations } = require('./runtime-annotations.cjs');
 const { appendJsonl, scanJsonl, runtimeRoot } = require('./runtime-storage.cjs');
 const { sessionKey } = require('./state.cjs');
 
+// Host families a mode-change record may name. The desktop adapter reports
+// `desktop`; anything else stays `other` so an unknown host is never invented.
+const HOST_FAMILIES = ['codex', 'claude-code', 'deepseek-harness', 'opencode', 'pi', 'omp', 'hermes-agent', 'desktop'];
+
 function controlState(contract) {
   if (contract.level === 'off') return 'off';
   return contract.level === 'watch' ? 'observing' : 'armed';
@@ -29,7 +33,7 @@ function recordModeChange(event, previousMode, contract, options = {}) {
     nextMode: contract.mode,
     source: contract.source,
     eventKind: 'prompt.submit',
-    hostFamily: ['codex', 'claude-code', 'deepseek-harness', 'opencode', 'pi', 'omp', 'hermes-agent'].includes(event.host?.family) ? event.host.family : 'other'
+    hostFamily: HOST_FAMILIES.includes(event.host?.family) ? event.host.family : 'other'
   };
   appendJsonl(path.join(runtimeRoot(options), 'mode-changes', `${sessionKey(event.sessionId)}.jsonl`), record);
 }
@@ -105,21 +109,31 @@ function recordDecision(facts, options = {}) {
   }
 }
 
+function listDirectory(directory) {
+  try {
+    return fs.readdirSync(directory);
+  } catch (error) {
+    // A path that is not a readable directory holds no records. The panel and
+    // the doctor must still answer while the data directory is damaged.
+    if (error && ['ENOENT', 'ENOTDIR', 'EACCES', 'EPERM'].includes(error.code)) return [];
+    throw error;
+  }
+}
+
 function eventFiles(query, options) {
   const root = runtimeRoot(options);
   if (query.sessionId) return [eventPath(query.sessionId, options)];
   if (query.sessionKey) return [path.join(root, `${query.sessionKey}.jsonl`)];
   const files = [];
   for (const directory of [root, path.join(root, 'children')]) {
-    if (!fs.existsSync(directory)) continue;
-    for (const name of fs.readdirSync(directory)) {
+    for (const name of listDirectory(directory)) {
       const entry = path.join(directory, name);
-      if (directory === root && name.endsWith('.jsonl') && name !== 'annotations.jsonl') {
-        files.push(entry);
-      } else if (directory !== root && fs.statSync(entry).isDirectory()) {
-        for (const child of fs.readdirSync(entry)) {
-          if (child.endsWith('.jsonl')) files.push(path.join(entry, child));
-        }
+      if (directory === root) {
+        if (name.endsWith('.jsonl') && name !== 'annotations.jsonl') files.push(entry);
+        continue;
+      }
+      for (const child of listDirectory(entry)) {
+        if (child.endsWith('.jsonl')) files.push(path.join(entry, child));
       }
     }
   }
@@ -132,13 +146,8 @@ function childEventFiles(query, options) {
   if (query.agentKey) return [agentEventPath(query.sessionId, query.agentKey, options)];
   if (!query.sessionId) return [];
   const directory = path.join(runtimeRoot(options), 'children', sessionKey(query.sessionId));
-  try {
-    return fs.readdirSync(directory).filter(name => name.endsWith('.jsonl'))
-      .sort().map(name => path.join(directory, name));
-  } catch (error) {
-    if (error && error.code === 'ENOENT') return [];
-    throw error;
-  }
+  return listDirectory(directory).filter(name => name.endsWith('.jsonl'))
+    .sort().map(name => path.join(directory, name));
 }
 
 function summarize(events, annotations, damagedRecords) {

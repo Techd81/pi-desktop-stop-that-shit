@@ -1,7 +1,0 @@
-{
-  "name": "proof-stop-good-fixture",
-  "private": true,
-  "scripts": {
-    "test": "node test/double.test.cjs && node test/unrelated.test.cjs"
-  }
-}

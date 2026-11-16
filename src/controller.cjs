@@ -112,7 +112,10 @@ function coordinatedUpdate(event, options, update) {
 
 function contractFields(contract, summary) {
   const limit = Number.isSafeInteger(contract.agentBudget) && contract.agentBudget >= 0 ? contract.agentBudget : DEFAULT_AGENT_LIMIT;
-  return `mode=${contract.mode}; agents=${summary.reservedUpperBound}/${limit} reserved${summary.unresolvedReasons.length ? '; count unproven' : ''}; hash=${contract.hashPolicy || 'deny'}; deps=${contract.dependencyPolicy || 'ask'}; files=${Array.isArray(contract.allowedPaths) ? contract.allowedPaths.join('|') : 'unbounded'}.`;
+  // The default budget is an unbounded sentinel; spelling out 9007199254740991
+  // in the model-facing contract reads as a real allowance.
+  const budget = limit === DEFAULT_AGENT_LIMIT ? 'unbounded' : String(limit);
+  return `mode=${contract.mode}; agents=${summary.reservedUpperBound}/${budget} reserved${summary.unresolvedReasons.length ? '; count unproven' : ''}; hash=${contract.hashPolicy || 'deny'}; deps=${contract.dependencyPolicy || 'ask'}; files=${Array.isArray(contract.allowedPaths) ? contract.allowedPaths.join('|') : 'unbounded'}.`;
 }
 
 function contractContext(contract, delegation = {}, phase = 'active', directiveWarning = null, storageError = null) {
@@ -179,6 +182,16 @@ function runtimeCommand(prompt) {
   return { name: words[0], all: words[1] === 'all', eventId: match[2] || match[3] || null, label: match[4] || null };
 }
 
+// A query verb that does not parse is still a query. Treating it as a directive
+// would persist a directive error that blocks later tool calls until the next
+// valid directive, which a mistyped event id must not do.
+function runtimeQueryReply(prompt) {
+  const command = runtimeCommand(prompt);
+  if (command) return command;
+  const head = /^(?:[ \t]*\r?\n)* {0,3}\$(?:stop-that-shit:)?stop-that-shit[ \t]+(status|runtime|explain|label)\b/i.exec(prompt);
+  return head ? { name: head[1].toLowerCase(), invalid: true } : null;
+}
+
 function runtimeSummaryText(runtime) {
   const { summary } = runtime;
   const labels = summary.labels;
@@ -198,7 +211,17 @@ function runtimeSummaryText(runtime) {
   return lines.join('\n');
 }
 
+const QUERY_USAGE = {
+  status: 'Use $stop-that-shit status with no further fields.',
+  runtime: 'Use $stop-that-shit runtime, or runtime all.',
+  explain: 'Use $stop-that-shit explain evt_<uuid>.',
+  label: 'Use $stop-that-shit label evt_<uuid> correct|incorrect|inconclusive.'
+};
+
 function handleRuntimeCommand(command, event, state, options) {
+  if (command.invalid) {
+    return context(`Stop That Shit could not read that query.\n${QUERY_USAGE[command.name] || 'Use the documented query form.'}`);
+  }
   if (command.name === 'status') {
     const summary = inspectDelegation(state.delegation);
     return context([
@@ -715,7 +738,7 @@ function handleControlEvent(rawEvent, options = {}) {
   }
   switch (event.kind) {
     case 'prompt.submit': {
-      const command = runtimeCommand(event.prompt);
+      const command = runtimeQueryReply(event.prompt);
       if (command) {
         const scope = approvalScope.resolve(event, options);
         const state = scope.child && scope.available

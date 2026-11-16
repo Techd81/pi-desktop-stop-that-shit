@@ -1,7 +1,9 @@
 'use strict';
 
 const HASH_COMMAND = /\b(?:Get-FileHash|md5sum|sha(?:1|224|256|384|512)sum|shasum|b2sum)\b|\bcertutil\b[^\r\n]*\s-hashfile\b|\bopenssl\s+dgst\b/i;
-const DEPENDENCY_COMMAND = /\b(?:npm|pnpm|yarn)\s+(?:add|install)\b|\bpip(?:3)?\s+install\b|\bcargo\s+add\b|\bdotnet\s+add\b[^\r\n]*\bpackage\b|\bgo\s+get\b|\bcomposer\s+require\b|\bbundle\s+add\b/i;
+// `i` is the documented npm/pnpm/yarn alias for install; bun and uv install the
+// same way. Missing them lets `deps=deny` pass a one-word install command.
+const DEPENDENCY_COMMAND = /\b(?:npm|pnpm|yarn|bun)\s+(?:add|install|i|ci)\b|\buv\s+add\b|\bpip(?:3)?\s+install\b|\bcargo\s+add\b|\bdotnet\s+add\b[^\r\n]*\bpackage\b|\bgo\s+get\b|\bcomposer\s+require\b|\bbundle\s+add\b/i;
 
 function classifyGitBranchArguments(args) {
   let listing = false, positional = false;
@@ -182,9 +184,9 @@ function directDependencyArguments(command, allowWrapper = true) {
   }
   const name = String(program || '').toLowerCase(), operation = String(verb || '').toLowerCase();
   let recognized = false;
-  if (['npm', 'pnpm', 'yarn'].includes(name)) recognized = ['install', 'add'].includes(operation);
+  if (['npm', 'pnpm', 'yarn', 'bun'].includes(name)) recognized = ['install', 'add', 'i', 'ci'].includes(operation);
   if (['pip', 'pip3'].includes(name)) recognized = operation === 'install';
-  if (['cargo', 'bundle'].includes(name)) recognized = operation === 'add';
+  if (['cargo', 'bundle', 'uv'].includes(name)) recognized = operation === 'add';
   if (name === 'composer') recognized = operation === 'require';
   if (name === 'go') recognized = operation === 'get';
   if (name === 'dotnet') recognized = operation === 'add' && args.some(value => value.toLowerCase() === 'package');
@@ -291,7 +293,7 @@ function classifyCommandArguments(name, args) {
     if (['status', 'diff', 'log', 'show', 'rev-parse'].includes(subcommand)) return classifyGitQueryArguments(args);
     return shellClassification('unknown', 'git_arguments_unproven');
   }
-  if (['npm', 'pnpm', 'yarn'].includes(name) && ['add', 'install', 'remove', 'uninstall', 'publish'].includes(args[0])) return shellClassification('write');
+  if (['npm', 'pnpm', 'yarn', 'bun'].includes(name) && ['add', 'install', 'i', 'ci', 'remove', 'uninstall', 'publish'].includes(args[0])) return shellClassification('write');
   if (['pip', 'pip3'].includes(name) && args[0] === 'install') return shellClassification('write');
   if (name === 'gh' && /^(?:pr (?:create|merge|close)|issue (?:create|close)|release create)$/.test(args.slice(0, 2).join(' '))) return shellClassification('write');
   if (name === 'rg') return classifyRipgrepArguments(args);
